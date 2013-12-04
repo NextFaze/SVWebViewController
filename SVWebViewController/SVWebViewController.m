@@ -10,7 +10,7 @@
 #import "SVWebViewControllerActivitySafari.h"
 #import "SVWebViewController.h"
 
-@interface SVWebViewController () <UIWebViewDelegate>
+@interface SVWebViewController () <UIWebViewDelegate, UIAlertViewDelegate>
 
 @property (nonatomic, strong) UIBarButtonItem *backBarButtonItem;
 @property (nonatomic, strong) UIBarButtonItem *forwardBarButtonItem;
@@ -20,6 +20,8 @@
 
 @property (nonatomic, strong) UIWebView *webView;
 @property (nonatomic, strong) NSURL *URL;
+
+@property (nonatomic, assign) BOOL requestCount;
 
 - (id)initWithAddress:(NSString*)urlString;
 - (id)initWithURL:(NSURL*)URL;
@@ -224,21 +226,38 @@
 
 #pragma mark - UIWebViewDelegate
 
+- (BOOL)webView:(UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request navigationType:(UIWebViewNavigationType)navigationType {
+    self.requestCount++;
+    return YES;
+}
+
 - (void)webViewDidStartLoad:(UIWebView *)webView {
 	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
     [self updateToolbarItems];
+    
+    self.requestCount--;
+    if (self.requestCount < 0) {
+        self.requestCount = 0;
+        
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Problem loading page"
+                                                        message:@"This site may contain popups, and may not work correctly unless using Safari. If you want to view this site in Safari, remember to return to meeco to keep your activity log accurate."
+                                                       delegate:self
+                                              cancelButtonTitle:@"Cancel"
+                                              otherButtonTitles:@"Safari", nil];
+        [alert show];
+    }
 }
 
 
 - (void)webViewDidFinishLoad:(UIWebView *)webView {
-	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+    [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
     
     self.navigationItem.title = [webView stringByEvaluatingJavaScriptFromString:@"document.title"];
     [self updateToolbarItems];
 }
 
 - (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error {
-	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+    [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
     [self updateToolbarItems];
 }
 
@@ -270,6 +289,19 @@
 
 - (void)doneButtonClicked:(id)sender {
     [self dismissViewControllerAnimated:YES completion:NULL];
+}
+
+#pragma mark - UIAlertViewDelegate
+
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if (buttonIndex == 0) {
+        // Cancel
+    }
+    else if (buttonIndex == 1) {
+        // Safari
+        [self.webView goBack];
+        [[UIApplication sharedApplication] openURL:self.URL];
+    }
 }
 
 @end
